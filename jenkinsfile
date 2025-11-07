@@ -6,9 +6,23 @@ pipeline {
         SSH_CRED_ID  = 'node-app-key'
         TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
         TOMCAT_SVC   = 'tomcat10'
+        JAVA_HOME    = '/usr/lib/jvm/java-21-openjdk-amd64'
+        PATH         = "${JAVA_HOME}/bin:${PATH}"
     }
 
     stages {
+
+        stage('Check Java & Maven Versions') {
+            steps {
+                sh '''
+                    echo "===== Checking Environment ====="
+                    java -version
+                    mvn -version
+                    echo "================================"
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/Shivamgarud8/tomcat.git'
@@ -17,7 +31,10 @@ pipeline {
 
         stage('Build WAR') {
             steps {
-                sh 'mvn clean package'
+                sh '''
+                    echo "Building WAR using Java 21..."
+                    mvn clean package -Dmaven.compiler.release=17
+                '''
             }
         }
 
@@ -25,6 +42,7 @@ pipeline {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     sh """
+                        echo "Deploying WAR to Tomcat Server..."
                         WAR_FILE=\$(ls target/*.war | head -n 1)
                         scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
                         ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
@@ -32,6 +50,7 @@ pipeline {
                             sudo mv /tmp/*.war ${TOMCAT_PATH}/ROOT.war
                             sudo chown tomcat:tomcat ${TOMCAT_PATH}/ROOT.war
                             sudo systemctl restart ${TOMCAT_SVC}
+                            echo "Tomcat restarted successfully!"
                         '
                     """
                 }
@@ -41,10 +60,10 @@ pipeline {
 
     post {
         success {
-            echo "App deployed! Visit: http://${SERVER_IP}:8080/"
+            echo "✅ App deployed successfully! Visit: http://${SERVER_IP}:8080/"
         }
         failure {
-            echo "Deployment failed."
+            echo "❌ Deployment failed. Check logs above for errors."
         }
     }
 }
