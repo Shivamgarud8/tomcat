@@ -1,18 +1,21 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk21'           // Name of JDK configured in Jenkins
+        maven 'maven3.8'      // Name of Maven configured in Jenkins
+    }
+
     environment {
         SERVER_IP    = '15.206.178.136'
-        SSH_CRED_ID  = 'node-app-key'
+        SSH_CRED_ID  = 'node-app-key'        // Your SSH credentials ID in Jenkins
         TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
         TOMCAT_SVC   = 'tomcat10'
-        JAVA_HOME    = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH         = "${JAVA_HOME}/bin:${PATH}"
     }
 
     stages {
 
-        stage('Check Java & Maven Versions') {
+        stage('Check Environment') {
             steps {
                 sh '''
                     echo "===== Checking Environment ====="
@@ -23,7 +26,7 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Shivamgarud8/tomcat.git'
             }
@@ -32,8 +35,8 @@ pipeline {
         stage('Build WAR') {
             steps {
                 sh '''
-                    echo "Building WAR using Java 21..."
-                    mvn clean package -Dmaven.compiler.release=17
+                    echo "===== Building WAR File ====="
+                    mvn clean package -DskipTests
                 '''
             }
         }
@@ -42,7 +45,7 @@ pipeline {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     sh """
-                        echo "Deploying WAR to Tomcat Server..."
+                        echo "===== Deploying to Tomcat ====="
                         WAR_FILE=\$(ls target/*.war | head -n 1)
                         scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
                         ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
@@ -50,8 +53,8 @@ pipeline {
                             sudo mv /tmp/*.war ${TOMCAT_PATH}/ROOT.war
                             sudo chown tomcat:tomcat ${TOMCAT_PATH}/ROOT.war
                             sudo systemctl restart ${TOMCAT_SVC}
-                            echo "Tomcat restarted successfully!"
                         '
+                        echo "===== Deployment Completed ====="
                     """
                 }
             }
@@ -60,10 +63,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ App deployed successfully! Visit: http://${SERVER_IP}:8080/"
+            echo "✅ Deployment successful! Visit: http://${SERVER_IP}:8080/"
         }
         failure {
-            echo "❌ Deployment failed. Check logs above for errors."
+            echo "❌ Deployment failed. Check logs for details."
         }
     }
 }
