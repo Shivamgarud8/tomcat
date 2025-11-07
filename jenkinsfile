@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk21'           // Name of JDK configured in Jenkins
-        maven 'maven3.8'      // Name of Maven configured in Jenkins
+        jdk 'jdk21'           // Must match name configured in Jenkins → Manage Jenkins → Tools → JDK installations
+        maven 'maven3.8'      // Must match name configured in Jenkins → Manage Jenkins → Tools → Maven installations
     }
 
     environment {
         SERVER_IP    = '15.206.178.136'
-        SSH_CRED_ID  = 'jen-new'        // Your SSH credentials ID in Jenkins
+        SSH_CRED_ID  = 'jen-new'         // SSH credentials ID in Jenkins
         TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
         TOMCAT_SVC   = 'tomcat10'
     }
@@ -37,6 +37,7 @@ pipeline {
                 sh '''
                     echo "===== Building WAR File ====="
                     mvn clean package -DskipTests
+                    echo "================================"
                 '''
             }
         }
@@ -45,16 +46,33 @@ pipeline {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     sh """
-                        echo "===== Deploying to Tomcat ====="
+                        echo "===== Ensuring SSH/SCP Installed ====="
+                        which scp || sudo apt-get update -y && sudo apt-get install -y openssh-client
+                        
+                        echo "===== Checking for WAR File ====="
+                        ls -lh target/
                         WAR_FILE=\$(ls target/*.war | head -n 1)
-                        scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
+                        echo "WAR File to deploy: \$WAR_FILE"
+                        
+                        echo "===== Copying WAR File to Remote Server ====="
+                        scp -v -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
+                        
+                        echo "===== Deploying to Tomcat Server ====="
                         ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
-                            sudo rm -rf ${TOMCAT_PATH}/*
+                            echo ">>> Stopping Tomcat..."
+                            sudo systemctl stop ${TOMCAT_SVC}
+
+                            echo ">>> Cleaning old ROOT..."
+                            sudo rm -rf ${TOMCAT_PATH}/ROOT ${TOMCAT_PATH}/ROOT.war
+
+                            echo ">>> Moving new WAR to Tomcat..."
                             sudo mv /tmp/*.war ${TOMCAT_PATH}/ROOT.war
                             sudo chown tomcat:tomcat ${TOMCAT_PATH}/ROOT.war
-                            sudo systemctl restart ${TOMCAT_SVC}
+
+                            echo ">>> Starting Tomcat..."
+                            sudo systemctl start ${TOMCAT_SVC}
+                            echo ">>> Deployment completed successfully!"
                         '
-                        echo "===== Deployment Completed ====="
                     """
                 }
             }
@@ -66,7 +84,7 @@ pipeline {
             echo "✅ Deployment successful! Visit: http://${SERVER_IP}:8080/"
         }
         failure {
-            echo "❌ Deployment failed. Check logs for details."
+            echo "❌ Deployment failed. Check Jenkins logs for more info."
         }
     }
 }
