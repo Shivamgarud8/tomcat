@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk21'
-        maven 'maven3.8'
+        jdk 'jdk21'           // Match Jenkins JDK config
+        maven 'maven3.8'      // Match Jenkins Maven config
     }
 
     environment {
         SERVER_IP    = '15.206.178.136'
-        SSH_CRED_ID  = 'jen-new'
+        SSH_CRED_ID  = 'jen-new'         // SSH credentials ID in Jenkins
         TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
         TOMCAT_SVC   = 'tomcat10'
     }
@@ -32,11 +32,27 @@ pipeline {
             }
         }
 
+        stage('Prepare WebApp Folder') {
+            steps {
+                sh '''
+                    echo "===== Preparing WebApp Structure ====="
+                    mkdir -p src/main/webapp
+                    # Copy WebContent contents to src/main/webapp
+                    cp -r WebContent/* src/main/webapp/
+                    echo "Contents of src/main/webapp:"
+                    ls -l src/main/webapp/
+                    echo "======================================"
+                '''
+            }
+        }
+
         stage('Build WAR') {
             steps {
                 sh '''
                     echo "===== Building WAR File ====="
                     mvn clean package -DskipTests
+                    echo "WAR file created at target/"
+                    ls -lh target/
                     echo "================================"
                 '''
             }
@@ -46,23 +62,17 @@ pipeline {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     sh """
-                        echo "===== Ensuring SSH/SCP Installed ====="
-                        which scp || sudo apt-get update -y && sudo apt-get install -y openssh-client
-                        
-                        echo "===== Checking for WAR File ====="
-                        ls -lh target/
+                        echo "===== Copying WAR File to Remote Server ====="
                         WAR_FILE=\$(ls target/*.war | head -n 1)
                         echo "WAR File to deploy: \$WAR_FILE"
-                        
-                        echo "===== Copying WAR File to Remote Server ====="
                         scp -v -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
-                        
-                        echo "===== Deploying to Tomcat Server ====="
+
+                        echo "===== Deploying to Tomcat ====="
                         ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
                             echo ">>> Stopping Tomcat..."
                             sudo systemctl stop ${TOMCAT_SVC}
 
-                            echo ">>> Cleaning old ROOT..."
+                            echo ">>> Removing old ROOT..."
                             sudo rm -rf ${TOMCAT_PATH}/ROOT ${TOMCAT_PATH}/ROOT.war
 
                             echo ">>> Moving new WAR to Tomcat..."
