@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk21'           // Must match name configured in Jenkins → Manage Jenkins → Tools → JDK installations
-        maven 'maven3.8'      // Must match name configured in Jenkins → Manage Jenkins → Tools → Maven installations
+        jdk 'jdk21'
+        maven 'maven3.8'
     }
 
     environment {
         SERVER_IP    = '15.206.178.136'
-        SSH_CRED_ID  = 'jen-new'         // SSH credentials ID in Jenkins
+        SSH_CRED_ID  = 'jen-new'
         TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
         TOMCAT_SVC   = 'tomcat10'
     }
