@@ -103,9 +103,9 @@ Apache Maven 3.8.x
 No more red errors 🎉
 
 🧠 **Remember:** In modern Jenkins, Global Tool Configuration = Tools. Tool names are logical labels and must exactly match Jenkinsfile.
-![jenkins](images/jqpng)
----
 
+---
+![jenkins](images/jq.png)
 ## 💡 Notes
 
 * Ensure SSH credentials (`SSH_CRED_ID`) are correctly set in Jenkins.
