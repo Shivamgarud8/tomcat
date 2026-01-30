@@ -52,50 +52,36 @@ pipeline {
         stage('Auto Install Tomcat & Deploy on REMOTE Server') {
             steps {
                 sshagent([SSH_CRED_ID]) {
-                    sh '''
-                        WAR_FILE=$(ls target/*.war | head -n 1)
+                    sh """
+                        WAR_FILE=\$(ls target/*.war | head -n 1)
 
-                        scp -o StrictHostKeyChecking=no $WAR_FILE ubuntu@${SERVER_IP}:/tmp/app.war
+                        scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/app.war
 
-                        ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} << 'EOF'
-                        set -e
-
-                        echo "===== REMOTE TOMCAT SETUP ====="
-
-                        # Install Tomcat if missing
-                        if ! systemctl list-unit-files | grep -q tomcat10.service; then
-                            sudo apt update
-                            sudo apt install tomcat10 -y
-                        fi
-
-                        # Stop Tomcat safely
-                        sudo systemctl stop tomcat10 || true
-
-                        # Clean old deployment
-                        sudo rm -rf /var/lib/tomcat10/webapps/ROOT \
-                                     /var/lib/tomcat10/webapps/ROOT.war
-
-                        # Deploy new WAR
-                        sudo mv /tmp/app.war /var/lib/tomcat10/webapps/ROOT.war
-                        sudo chown tomcat:tomcat /var/lib/tomcat10/webapps/ROOT.war
-
-                        # Start Tomcat
-                        sudo systemctl start tomcat10
-                        sudo systemctl enable tomcat10
-
-                        echo "===== DEPLOYMENT COMPLETE ====="
-                        EOF
-                    '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} "\
+                            set -e && \
+                            echo '===== REMOTE TOMCAT SETUP =====' && \
+                            if ! systemctl list-unit-files | grep -q ${TOMCAT_SVC}.service; then \
+                                sudo apt update && sudo apt install -y ${TOMCAT_SVC}; \
+                            fi && \
+                            sudo systemctl stop ${TOMCAT_SVC} || true && \
+                            sudo rm -rf ${TOMCAT_PATH}/ROOT ${TOMCAT_PATH}/ROOT.war && \
+                            sudo mv /tmp/app.war ${TOMCAT_PATH}/ROOT.war && \
+                            sudo chown ${TOMCAT_USER}:${TOMCAT_USER} ${TOMCAT_PATH}/ROOT.war && \
+                            sudo systemctl start ${TOMCAT_SVC} && \
+                            sudo systemctl enable ${TOMCAT_SVC} && \
+                            echo '===== DEPLOYMENT COMPLETE =====' \
+                        "
+                    """
                 }
             }
         }
 
         stage('Health Check') {
             steps {
-                sh '''
+                sh """
                     sleep 10
                     curl -I http://${SERVER_IP}:8080 || exit 1
-                '''
+                """
             }
         }
     }
