@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        SERVER_IP   = '13.61.175.251'
+        SERVER_IP   = '13.61.175.251'   // TOMCAT SERVER
         SSH_CRED_ID = 'jenkins-weather'
         TOMCAT_SVC  = 'tomcat10'
         TOMCAT_PATH = '/var/lib/tomcat10/webapps'
@@ -16,7 +16,7 @@ pipeline {
 
     stages {
 
-        stage('Check Environment') {
+        stage('Check Build Environment') {
             steps {
                 sh '''
                     java -version
@@ -40,7 +40,7 @@ pipeline {
             }
         }
 
-        stage('Build WAR') {
+        stage('Build WAR on Jenkins Server') {
             steps {
                 sh '''
                     mvn clean package -DskipTests
@@ -49,7 +49,7 @@ pipeline {
             }
         }
 
-        stage('Auto Install & Deploy Tomcat') {
+        stage('Auto Install Tomcat & Deploy on REMOTE Server') {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     sh '''
@@ -58,28 +58,24 @@ pipeline {
                         scp -o StrictHostKeyChecking=no $WAR_FILE ubuntu@${SERVER_IP}:/tmp/app.war
 
                         ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} << 'EOF'
-
                         set -e
-                        echo "===== AUTO SETUP START ====="
 
-                        # Install Tomcat if not installed
-                        if ! systemctl list-units --type=service | grep -q tomcat10; then
-                            echo "Installing Tomcat 10..."
+                        echo "===== REMOTE TOMCAT SETUP ====="
+
+                        # Install Tomcat if missing
+                        if ! systemctl list-unit-files | grep -q tomcat10.service; then
                             sudo apt update
                             sudo apt install tomcat10 -y
                         fi
 
-                        # Ensure directories exist
-                        sudo mkdir -p /var/lib/tomcat10/webapps
-
-                        # Stop Tomcat
+                        # Stop Tomcat safely
                         sudo systemctl stop tomcat10 || true
 
-                        # Clean old app
+                        # Clean old deployment
                         sudo rm -rf /var/lib/tomcat10/webapps/ROOT \
                                      /var/lib/tomcat10/webapps/ROOT.war
 
-                        # Deploy new app
+                        # Deploy new WAR
                         sudo mv /tmp/app.war /var/lib/tomcat10/webapps/ROOT.war
                         sudo chown tomcat:tomcat /var/lib/tomcat10/webapps/ROOT.war
 
@@ -87,7 +83,7 @@ pipeline {
                         sudo systemctl start tomcat10
                         sudo systemctl enable tomcat10
 
-                        echo "===== DEPLOYMENT DONE ====="
+                        echo "===== DEPLOYMENT COMPLETE ====="
                         EOF
                     '''
                 }
