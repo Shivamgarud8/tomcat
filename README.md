@@ -11,7 +11,8 @@
 * Tomcat 10 (Web Server)
 * GitHub (Source Code Repository)
 * SSH (Remote Deployment)
-![jenkins](images/pune.png)
+![jenkins](images/work.png)
+
 ---
 
 ## 📌 Project Overview
@@ -29,7 +30,7 @@ This project demonstrates a **fully automated pipeline** that:
 The pipeline is **one-click deployment**, making CI/CD smooth and efficient.
 
 ---
-
+![jenkins](images/m2.png)
 ## 🛠️ Prerequisites
 
 * Jenkins server with `ssh-agent` plugin installed.
@@ -56,7 +57,8 @@ That Tools icon (🔧 hammer) is exactly what we need.
 1️⃣ Under **JDK** section, click **Add JDK**.
 
 2️⃣ Fill details exactly like this:
-
+![jenkins](images/j5.png)
+![jenkins](images/m1png)
 * **Name:** jdk21
 * ✅ Check **Install automatically**
 * **Version:** JDK 21
@@ -101,7 +103,7 @@ Apache Maven 3.8.x
 No more red errors 🎉
 
 🧠 **Remember:** In modern Jenkins, Global Tool Configuration = Tools. Tool names are logical labels and must exactly match Jenkinsfile.
-
+![jenkins](images/jqpng)
 ---
 
 ## 💡 Notes
@@ -112,5 +114,17 @@ No more red errors 🎉
 
 ---
 
-**Author:** Shivam Garud
-**Project Name:** Tomcat Jenkins Maven Deployment Pipeline
+---
+👩‍🏫 **Guided and Supported by [Trupti Mane Ma’am](https://github.com/iamtruptimane)**  
+---
+
+👨‍💻 **Developed By:**  
+**Shivam Garud**  
+🧠 *DevOps & Cloud Enthusiast*  
+💼 *Automating deployments, one pipeline at a time!*  
+🌐 [GitHub Profile](https://github.com/Shivamgarud8)
+🌐 [Medium blog](https://medium.com/@shivam.garud2011)
+🌐 [Linkedin](https://www.linkedin.com/in/shivam-garud/)
+🌐 [PortFolio](https://shivam-garud.vercel.app/)
+
+
