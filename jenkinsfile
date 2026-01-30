@@ -2,15 +2,16 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk21'           // Match Jenkins JDK config
-        maven 'maven3.8'      // Match Jenkins Maven config
+        jdk 'jdk21'
+        maven 'maven3.8'
     }
 
     environment {
-        SERVER_IP    = '13.61.175.251'
-        SSH_CRED_ID  = 'jenkins-weather'         // SSH credentials ID in Jenkins
-        TOMCAT_PATH  = '/var/lib/tomcat10/webapps'
-        TOMCAT_SVC   = 'tomcat10'
+        SERVER_IP   = '13.61.175.251'
+        SSH_CRED_ID = 'jenkins-weather'
+        TOMCAT_PATH = '/var/lib/tomcat10/webapps'
+        TOMCAT_SVC  = 'tomcat10'
+        TOMCAT_USER = 'tomcat10'
     }
 
     stages {
@@ -37,8 +38,7 @@ pipeline {
                 sh '''
                     echo "===== Preparing WebApp Structure ====="
                     mkdir -p src/main/webapp
-                    # Copy WebContent contents to src/main/webapp
-                    cp -r WebContent/* src/main/webapp/
+                    cp -r WebContent/* src/main/webapp/ || true
                     echo "Contents of src/main/webapp:"
                     ls -l src/main/webapp/
                     echo "======================================"
@@ -51,8 +51,8 @@ pipeline {
                 sh '''
                     echo "===== Building WAR File ====="
                     mvn clean package -DskipTests
-                    echo "WAR file created at target/"
-                    ls -lh target/
+                    echo "Generated WAR:"
+                    ls -lh target/*.war
                     echo "================================"
                 '''
             }
@@ -61,29 +61,30 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 sshagent([SSH_CRED_ID]) {
-                    sh """
-                        echo "===== Copying WAR File to Remote Server ====="
-                        WAR_FILE=\$(ls target/*.war | head -n 1)
-                        echo "WAR File to deploy: \$WAR_FILE"
-                        scp -v -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@${SERVER_IP}:/tmp/
+                    sh '''
+                        echo "===== Copying WAR File ====="
+                        WAR_FILE=$(ls target/*.war | head -n 1)
+                        echo "WAR File: $WAR_FILE"
 
-                        echo "===== Deploying to Tomcat ====="
-                        ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
-                            echo ">>> Stopping Tomcat..."
+                        scp -o StrictHostKeyChecking=no $WAR_FILE ubuntu@${SERVER_IP}:/tmp/app.war
+
+                        ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} << EOF
+                            echo ">>> Stopping Tomcat"
                             sudo systemctl stop ${TOMCAT_SVC}
 
-                            echo ">>> Removing old ROOT..."
+                            echo ">>> Cleaning old deployment"
                             sudo rm -rf ${TOMCAT_PATH}/ROOT ${TOMCAT_PATH}/ROOT.war
 
-                            echo ">>> Moving new WAR to Tomcat..."
-                            sudo mv /tmp/*.war ${TOMCAT_PATH}/ROOT.war
-                            sudo chown tomcat:tomcat ${TOMCAT_PATH}/ROOT.war
+                            echo ">>> Deploying new WAR"
+                            sudo mv /tmp/app.war ${TOMCAT_PATH}/ROOT.war
+                            sudo chown ${TOMCAT_USER}:${TOMCAT_USER} ${TOMCAT_PATH}/ROOT.war
 
-                            echo ">>> Starting Tomcat..."
+                            echo ">>> Starting Tomcat"
                             sudo systemctl start ${TOMCAT_SVC}
-                            echo ">>> Deployment completed successfully!"
-                        '
-                    """
+
+                            echo ">>> Deployment DONE"
+                        EOF
+                    '''
                 }
             }
         }
@@ -91,10 +92,11 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful! Visit: http://${SERVER_IP}:8080/"
+            echo "✅ Deployment successful!"
+            echo "🌍 Visit: http://${SERVER_IP}:8080/"
         }
         failure {
-            echo "❌ Deployment failed. Check Jenkins logs for more info."
+            echo "❌ Deployment failed. Check Jenkins console logs."
         }
     }
 }
